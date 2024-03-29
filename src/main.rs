@@ -7,6 +7,12 @@ use dioxus::{
 use searchuser::ldap::Connexions;
 
 
+// Colors
+static ldap_col1: &str = "rgba(95, 158, 160, 0.4)";
+static ldap_col2: &str = "rgba(175, 238, 238, 0.4)";
+static ad_col1: &str =  "rgba(158, 158, 100, 0.4)";
+static ad_col2: &str = "rgba(238, 238, 100, 0.4)";
+
 
 
 fn main() {
@@ -20,7 +26,7 @@ fn main() {
                         .with_inner_size(LogicalSize::new(1280, 900))
                         .with_maximized(false),
                 )
-                .with_custom_head(r#"<link rel="stylesheet" href="tailwind.css">"#.to_string()),
+                .with_custom_head(r#"<link rel="stylesheet" href="default.css">"#.to_string()),
         )
         .launch(App);
 }
@@ -71,15 +77,36 @@ fn EntryList(signal: Signal<String>) -> Element {
         search_results(filter)
     });
 
+
+    let mut odd = false;
+    let mut i = 0;
     match &*res_ldap.read_unchecked() {
         Some(list) => {
+            let lengths = field_lengths(list);
+            let field_nb = lengths.len();
+
             rsx! {
-                div {
+                div { 
                     for line in list {
-                        for field in line {
-                            div { 
-                                 { field.clone() }
-                             }
+                        div {
+                            background_color: {
+                                odd = !odd; 
+                                if odd {ldap_col1} else {ldap_col2}
+                            } ,
+                            for field in line {
+                                div {
+                                    class: "ldap_field",
+                                    width: {
+                                        let l = lengths[i];
+                                        i+= 1;
+                                        if i == field_nb {
+                                            i = 0;
+                                        }
+                                        (l * 10).to_string() + "px"
+                                    },
+                                    { field.clone() }
+                                }
+                            }
                         }
                     }
                 }
@@ -93,7 +120,19 @@ fn EntryList(signal: Signal<String>) -> Element {
     } 
 }
 
-
+// Renvoie un tableau de taille de champ pour la liste de résultats passée, en fonction de la longueur du plus grand mot de chaque champ
+fn field_lengths(res: &Vec<Vec<String>>) -> Vec<usize> {
+    let field_number = res[0].len();
+    let mut lengths = vec!(0; field_number);
+    for line in res {
+        for i in 0..field_number {
+            if line[i].len() > lengths[i] {
+                lengths[i] = line[i].chars().count();
+            }
+        }
+    }
+    lengths
+}
 
 fn format_data(attrs: &Vec<String>, res: Vec<HashMap<String, Vec<String>>>) -> Vec<Vec<String>> {
     let mut lines = Vec::new();
