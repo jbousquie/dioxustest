@@ -78,17 +78,30 @@ fn EntryList(signal: Signal<String>) -> Element {
     });
 
 
-    let mut odd = false;
-    let mut i = 0;
+
+
     match &*res_ldap.read_unchecked() {
         Some(list) => {
+            let mut odd = false;
+            let mut i = 0;
+            let scale = 10;
             let lengths = field_lengths(list);
             let field_nb = lengths.len();
+
 
             rsx! {
                 div { 
                     for line in list {
                         div {
+                            width: {
+                                let mut total_width = 0;
+                                for ele in lengths.iter() {
+                                    total_width += ele;
+                                }
+                                let upscaled = (scale as f64 * 1.2).round() as usize;
+                                let div_width = (upscaled * total_width).to_string() + "px";
+                                div_width.clone()
+                            },
                             background_color: {
                                 odd = !odd; 
                                 if odd {ldap_col1} else {ldap_col2}
@@ -102,7 +115,7 @@ fn EntryList(signal: Signal<String>) -> Element {
                                         if i == field_nb {
                                             i = 0;
                                         }
-                                        (l * 10).to_string() + "px"
+                                        (l * scale).to_string() + "px"
                                     },
                                     { field.clone() }
                                 }
