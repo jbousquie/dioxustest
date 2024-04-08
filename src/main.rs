@@ -13,7 +13,10 @@ static ldap_col2: &str = "rgba(175, 238, 238, 0.4)";
 static ad_col1: &str =  "rgba(158, 158, 100, 0.4)";
 static ad_col2: &str = "rgba(238, 238, 100, 0.4)";
 
-
+pub struct Results {
+    ldap_res: Vec<Vec<String>>,
+    ad_res: Vec<Vec<String>>,
+}
 
 fn main() {
     
@@ -51,18 +54,22 @@ fn App() -> Element {
     }
 }
 
-pub async fn search_results(filter: String) -> Vec<Vec<String>> {
+pub async fn search_results(filter: String) -> Results {
 
     let settings_filename = "./conf.toml";
     let  con = Connexions::new(settings_filename);
     let ldap_attrs = &con.conf.ldap.attrs_search;
 
     let (ldap_res, ad_res) = con.search(filter).await;
-    //let ad_attrs = &con.conf.ad.attrs_search;   
+    let ad_attrs = &con.conf.ad.attrs_search;   
     let res_ldap = format_data(&ldap_attrs, ldap_res);
-    //let res_ad = format_data(&ad_attrs, ad_res);
+    let res_ad = format_data(&ad_attrs, ad_res);
 
-    res_ldap
+    let res = Results {
+        ldap_res: res_ldap,
+        ad_res: res_ad,
+    };
+    res
 }
 
 
@@ -72,58 +79,24 @@ pub async fn search_results(filter: String) -> Vec<Vec<String>> {
 #[component]
 fn EntryList(signal: Signal<String>) -> Element {
    
-    let res_ldap = use_resource(move || { 
+    let res = use_resource(move || { 
         let filter = signal();
         search_results(filter)
     });
 
+    match &*res.read_unchecked() {
+        Some(res) => {
+            let list_ldap = &res.ldap_res;
+            let list_ad = &res.ad_res;
 
-
-
-    match &*res_ldap.read_unchecked() {
-        Some(list) => {
-            let mut odd = false;
-            let mut i = 0;
             let scale = 10;
-            let lengths = field_lengths(list);
-            let field_nb = lengths.len();
+            let ldap_lengths = field_lengths(&list_ldap);
+            let ldap_field_nb = ldap_lengths.len() - 1;   // on ne prend pas en compte le dernier champ "uid" ajouté
+            let ad_lengths = field_lengths(&list_ad);
+            let ad_field_nb = ad_lengths.len();
 
+            display_list(list_ldap, ldap_lengths, ldap_field_nb, scale)
 
-            rsx! {
-                div { 
-                    for line in list {
-                        div {
-                            width: {
-                                let mut total_width = 0;
-                                for ele in lengths.iter() {
-                                    total_width += ele;
-                                }
-                                let upscaled = (scale as f64 * 1.2).round() as usize;
-                                let div_width = (upscaled * total_width).to_string() + "px";
-                                div_width.clone()
-                            },
-                            background_color: {
-                                odd = !odd; 
-                                if odd {ldap_col1} else {ldap_col2}
-                            } ,
-                            for field in line {
-                                div {
-                                    class: "ldap_field",
-                                    width: {
-                                        let l = lengths[i];
-                                        i+= 1;
-                                        if i == field_nb {
-                                            i = 0;
-                                        }
-                                        (l * scale).to_string() + "px"
-                                    },
-                                    { field.clone() }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         },
 
         None => {
@@ -131,6 +104,40 @@ fn EntryList(signal: Signal<String>) -> Element {
         },
 
     } 
+}
+
+fn display_list(list: &Vec<Vec<String>>, lengths: Vec<usize>, field_nb: usize, scale: usize) -> Element {
+    let mut odd = false;
+    rsx! {
+        div { 
+            for line in list {
+                div {
+                    width: {
+                        let mut total_width = 0;
+                        for i in 0..lengths.len() - 1 { // on ne prend pas en compte le dernier champ "uid" ajouté
+                            total_width += lengths[i];
+                        }
+                        let upscaled = (scale as f64 * 1.05).round() as usize;
+                        let div_width = (upscaled * total_width).to_string() + "px";
+                        div_width.clone()
+                    },
+                    background_color: {
+                        odd = !odd; 
+                        if odd {ldap_col1} else {ldap_col2}
+                    } ,
+                    for  i in 0..line.len() - 1 {    // on ne prend pas en compte le dernier champ "uid" ajouté
+                        div {
+                            class: "ldap_field",
+                            width: {
+                                (lengths[i] * scale).to_string() + "px"
+                            },
+                            { line[i].clone() }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // Renvoie un tableau de taille de champ pour la liste de résultats passée, en fonction de la longueur du plus grand mot de chaque champ
