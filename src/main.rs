@@ -2,16 +2,16 @@
 use std::collections::HashMap;
 
 use dioxus::{
-    desktop::{Config, LogicalSize, WindowBuilder}, prelude::*
+    desktop::{tao::dpi::PhysicalSize, Config, LogicalSize, WindowBuilder}, prelude::*
 };
 use searchuser::ldap::Connexions;
 
 
 // Colors
-static ldap_col1: &str = "rgba(95, 158, 160, 0.4)";
-static ldap_col2: &str = "rgba(175, 238, 238, 0.4)";
-static ad_col1: &str =  "rgba(158, 158, 100, 0.4)";
-static ad_col2: &str = "rgba(238, 238, 100, 0.4)";
+static LDAP_COL1: &str = "rgba(95, 158, 160, 0.4)";
+static LDAP_COL2: &str = "rgba(175, 238, 238, 0.4)";
+static AD_COL1: &str =  "rgba(158, 158, 100, 0.4)";
+static AD_COL2: &str = "rgba(238, 238, 100, 0.4)";
 
 pub struct Results {
     ldap_res: Vec<Vec<String>>,
@@ -25,8 +25,8 @@ fn main() {
             Config::new()
                 .with_window(
                     WindowBuilder::new()
-                        .with_title("Appli de test")
-                        .with_inner_size(LogicalSize::new(1280, 900))
+                        .with_title("Dioxus Test")
+                        .with_inner_size(LogicalSize::new(1280.0, 900.0))
                         .with_maximized(false),
                 )
                 .with_custom_head(r#"<link rel="stylesheet" href="default.css">"#.to_string()),
@@ -41,10 +41,10 @@ fn App() -> Element {
     rsx! {
         div {
             input {
+                class: "textInput",
                 r#type: "text",
                  //value: "{name}",
                 placeholder: "3 caractères minimum",
-                autofocus: true,
                 onchange:  move |event| { 
                     name_signal.set(event.value());
                 }
@@ -86,50 +86,80 @@ fn EntryList(signal: Signal<String>) -> Element {
 
     match &*res.read_unchecked() {
         Some(res) => {
-            let list_ldap = &res.ldap_res;
-            let list_ad = &res.ad_res;
+            let list_ldap = res.ldap_res.clone();
+            let list_ad = res.ad_res.clone();
 
-            let scale = 10;
+            let scale = 10; // taille en px d'un caractère
             let ldap_lengths = field_lengths(&list_ldap);
-            let ldap_field_nb = ldap_lengths.len() - 1;   // on ne prend pas en compte le dernier champ "uid" ajouté
             let ad_lengths = field_lengths(&list_ad);
-            let ad_field_nb = ad_lengths.len();
 
-            display_list(list_ldap, ldap_lengths, ldap_field_nb, scale)
-
+            rsx! {
+                div {
+                    class: "dataArrays",
+                    DisplayList{ list: list_ldap, lengths: ldap_lengths, scale: scale, color1: LDAP_COL1.to_string(), color2: LDAP_COL2.to_string() },
+                    DisplayList{ list: list_ad, lengths: ad_lengths, scale: scale, color1: AD_COL1.to_string(), color2: AD_COL2.to_string() }
+                }
+            }
         },
 
         None => {
-            rsx! { "Recherche en cours ..."}
+            rsx! { 
+                div {
+                    class: "msg",
+                    "Recherche en cours ..."
+                }
+            }
         },
 
     } 
 }
 
-fn display_list(list: &Vec<Vec<String>>, lengths: Vec<usize>, field_nb: usize, scale: usize) -> Element {
+#[derive(PartialEq, Props, Clone)]
+struct DisplayListProps {
+    list: Vec<Vec<String>>,
+    lengths: Vec<usize>,
+    scale: usize,
+    color1: String,
+    color2: String,
+}
+#[component]
+fn DisplayList(props: DisplayListProps) -> Element {
     let mut odd = false;
+    let color1 = props.color1;
+    let color2 = props.color2;
+    let mut header = true;
     rsx! {
         div { 
-            for line in list {
+            class: "resultCol",
+            width: {
+                let mut total_width = 0;
+                for i in 0..props.lengths.len() - 1 { // on ne prend pas en compte le dernier champ "uid" ajouté
+                    total_width += props.lengths[i];
+                }
+                let upscaled = (props.scale as f64 * 1.05).round() as usize;
+                let div_width = (upscaled * total_width).to_string() + "px";
+                div_width.clone()
+            },
+            for line in props.list {
                 div {
-                    width: {
-                        let mut total_width = 0;
-                        for i in 0..lengths.len() - 1 { // on ne prend pas en compte le dernier champ "uid" ajouté
-                            total_width += lengths[i];
+                    class: {
+                        if header {
+                            header = false;
+                            "header".to_string()
                         }
-                        let upscaled = (scale as f64 * 1.05).round() as usize;
-                        let div_width = (upscaled * total_width).to_string() + "px";
-                        div_width.clone()
+                        else {
+                            "ldap_line".to_string()
+                        }
                     },
                     background_color: {
                         odd = !odd; 
-                        if odd {ldap_col1} else {ldap_col2}
+                        if odd { color1.clone() } else { color2.clone() }
                     } ,
                     for  i in 0..line.len() - 1 {    // on ne prend pas en compte le dernier champ "uid" ajouté
                         div {
                             class: "ldap_field",
                             width: {
-                                (lengths[i] * scale).to_string() + "px"
+                                (props.lengths[i] * props.scale).to_string() + "px"
                             },
                             { line[i].clone() }
                         }
@@ -174,7 +204,7 @@ fn format_data(attrs: &Vec<String>, res: Vec<HashMap<String, Vec<String>>>) -> V
                     values_line.push(vals);
                 } 
                 else {
-                    let empty = String::from("");
+                    let empty = String::from("<vide>");
                     values_line.push(empty);
                 } 
             }

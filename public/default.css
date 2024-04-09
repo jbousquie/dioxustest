@@ -1,5 +1,43 @@
+.textInput {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 250px;
+    height:30px;
+    padding: 5px;
+    font-size: 16px;
+}
+
+.header {
+    font-style: italic;
+    font-weight: 600;
+}
+
 .ldap_field {
     display: inline-block;
     height: 40px;
     padding: 5px;
+}
+
+.ldap_line:hover {
+    border: 4px;
+    border-style: solid;
+    border-radius: 10px;
+    border-color: yellowgreen;
+}
+
+.resultCol {
+    float: left;
+    margin: 10px;
+}
+
+.dataArrays {
+    position: absolute;
+    top: 80px;
+    left: 20px;
+}
+.msg {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
